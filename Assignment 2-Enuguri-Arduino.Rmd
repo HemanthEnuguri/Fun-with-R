@@ -1,0 +1,219 @@
+---
+title: "Arduino"
+author: "Hemanth Kumar Enuguri"
+date: "2023-03-29"
+output: html_document
+---
+
+---
+**Arduino** is an open source platform that enables users to create and program electronic devices using a range of hardware and software tools. It is widely used by educators, and professionals for its versatility and user-friendly interface. With a variety of available components, such as microcontrollers, sensors, and actuators, it allows users to design simple to complex systems.
+
+My topic page is [**https://github.com/topics/arduino**](https://github.com/topics/arduino){.uri}
+---
+## List of Libraries:
+
+```{r, warning=FALSE}
+
+library(kableExtra)
+library(gh)
+library(tidyverse)
+```
+---
+## Git Hub Token
+
+```{r}
+
+git_token = "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"
+Sys.setenv(GITHUB_TOKEN = git_token)
+```
+
+## Fetch the data
+
+The below code makes use of the **'gh'** package to extract information about repositories related to the Arduino topic from the GitHub API.
+
+**STEP 1:** Search for repositories related to the Arduino topic, with a limit of 500 results,extract repository information from the API response and store them in the repos object.
+
+**STEP 2:** Create a list for each repository containing its name, creation year, size, language, and topics.
+
+```{r}
+#install.packages("gh")
+library(gh)
+
+repos <-gh('GET /search/repositories?q=topic:arduino',.limit = 500)
+
+repo_info <- lapply(repos$items, function(repo) {
+  list(
+    repo_name = repo$name,
+    created_year = format(as.Date(repo$created_at), "%Y"),
+    size = repo$size,
+    language = repo$language,
+    topics = repo$topics
+  )
+})
+
+```
+---
+## **Table-1: Summarizing the repositories**
+
+A new data frame **df** is created, it contains the information such as the name of the repository, the year it was created, its size, language used, and the topics associated with it.
+
+```{r }
+df <- as.data.frame(do.call(rbind, repo_info))
+df$topics <- sapply(df$topics, function(x) paste(x, collapse = ", "))
+kable(head(df,10), booktabs = TRUE) %>%
+  kable_styling(font_size = 14)
+```
+
+## **Table-2: Summarizing the owner of the repositories**
+
+The below code first creates a list of owners information by calling the API for each repository, then it processes this information into a data frame called **owner_data** that includes columns for the owner's GitHub login, number of public repositories, the year they joined GitHub, and number of followers.
+
+```{r}
+
+repo_owner <- lapply(repos$items, function(repo) {
+  list(
+    owner_login = repo$owner$login
+  )
+})
+owner_data <- data.frame(login=character(),
+                         id=numeric(),
+                         public=numeric(),
+                         created_year=numeric(),
+                         followers=numeric())
+for(i in 1:length(repo_owner)){
+  o_name=repo_owner[[i]]$owner_login
+  repo_data_owner=gh("GET /users/:ownername",ownername=o_name)
+  
+  login = repo_data_owner$login
+  id = repo_data_owner$id
+  public=repo_data_owner$public_repos
+  created_year = format(as.Date(repo_data_owner$created_at), "%Y")
+  followers=repo_data_owner$followers
+  
+  owner_data <- rbind(owner_data, data.frame(login=login,
+                                             public_repos=public,
+                                             created_year=created_year,
+                                             followers=followers))
+  
+}
+
+kable(head(owner_data,10), booktabs = TRUE) %>%
+  kable_styling(font_size = 14)
+```
+
+The above table summarizes the information retrieved for each owner.
+
+## **Table-3: Summary of most recently closed issue in each repository**
+
+```{r}
+rec_closed_arduino<- data.frame(repo_name=character(),
+                         issue_title=character(),
+                         created_at=numeric(),
+                         closed_at=numeric())
+```
+
+For each row, the below code extracts the owner's name and repository name to create a URL to access closed issues related to that repository and each closed issue is combined into a new dataframe called **`rec_closed_arduino`** using **`rbind`**.
+
+```{r}
+for(i in 1:10){
+  owner_name=owner_data$login[[i]]
+  repository_name=df$repo_name[[i]]
+ 
+  issue_url <- sprintf("https://api.github.com/search/issues?q=is:issue is:closed repo:%s/%s&sort=updated&order=desc&per_page=1", owner_name, repository_name)
+  
+  issue_data <- gh(issue_url)
+  
+  issue_details <- lapply(issue_data$items, function(repo) {
+    list(
+      repo_name = repository_name,
+      issue_title = repo$title,
+      created_at =format(as.Date(repo$created_at), "%Y-%m-%d"),
+      closed_at = format(as.Date(repo$closed_at), "%Y-%m-%d")
+    )
+  })
+  rec_closed_arduino <- rbind(rec_closed_arduino, do.call(rbind, issue_details))
+
+}
+
+kable(head(rec_closed_arduino,10), booktabs = TRUE) %>%
+  kable_styling(font_size = 14)
+
+
+```
+
+This table gives the list of top 10 repositories, the date at which it is created and closed along with the issue associated with it.
+
+## Filtering the DATA
+
+The below code filters a data frame **df** to keep only the rows where the topics column contains the word "arduino" using the filter() function from the dplyr package. Then, it splits the topics column into multiple rows using separate_rows() function then counts the number of occurrences of each unique value of topics column using count() function and returns the top 5 most common values.
+
+```{r}
+
+topic_of_interest <- "arduino"
+
+df_filtered <- df %>%
+  filter(str_detect(topics, topic_of_interest))
+cooccurring_topics <- df_filtered %>%
+  separate_rows(topics) %>%
+  filter(topics != topic_of_interest) %>%
+  count(topics, sort = TRUE) %>%
+  top_n(5, n)
+```
+
+## **DATA INSIGHTS**
+
+```{r}
+
+my_colors <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2")
+
+ggplot(data = cooccurring_topics, aes(x = topics, y = n, fill = topics)) +
+  geom_col() +geom_text(aes(label=n), vjust=1.5, color="black", size=4) +
+  labs(title = paste("Top 5 commonly associated topics with", topic_of_interest),
+       x = "Topics", y = "Frequency") +
+  theme_minimal() +
+  scale_fill_manual(values = my_colors) +
+  guides(fill=guide_legend(title="List of topics"))+
+  theme(plot.title = element_text(face = "bold", size = 16),
+        plot.subtitle = element_text(size = 12),
+        axis.title = element_text(face = "bold", size = 12),
+        axis.text = element_text(size = 10)) 
+
+```
+
+The plot indicates **'esp32'** is the most commonly associated topic, followed by **'library', 'esp8266', 'iot', and 'raspberry'**. This indicates that these topics are frequently used along with Arduino in Github repositories. The plot also shows the frequency of occurrence of each of these topics in the filtered data set. Overall, this information can be useful for developers and users interested in Arduino, as it gives an idea of what other topics are commonly used in combination with it.
+
+## **Line Chart**
+
+-   Step-1: The **filter()** function from the dplyr package is used to filter the rows of df dataframe that have the topic "arduino" in their topics column. The resulting filtered dataframe is assigned to df_filtered.
+
+-   Step-2: The **group_by()** function from the dplyr package is used to group the filtered dataframe df_filtered by the created_year column.
+
+-   Step-3: The **summarise()** function from the dplyr package is used to summarize the number of repositories (repos_count) created in each year.
+
+-   Step-4: The **as.data.frame()** function is used to convert the resulting object to a data frame.
+
+```{r}
+arduino_repo_summary <- df %>% 
+  filter(str_detect(topics, "arduino")) %>% 
+  group_by(created_year) %>% 
+  summarise(repos_count = n()) %>%
+  as.data.frame()
+
+arduino_repo_summary$created_year <- as.numeric(as.character(arduino_repo_summary$created_year))
+
+ggplot(arduino_repo_summary, aes(x = created_year, y = repos_count)) +
+  geom_line(color = "black") +
+  geom_point(size = 3, color = "black") +
+  scale_x_continuous(breaks = arduino_repo_summary$created_year) +
+  labs(x = "Year", y = "Number of Repositories Created", 
+       title = "Arduino Repositories Created Each Year",
+       subtitle = "Data retrieved using the GitHub API") +
+  theme_light() +
+  theme(plot.title = element_text(face = "bold", size = 16),
+        plot.subtitle = element_text(size = 12),
+        axis.title = element_text(face = "bold", size = 12),
+        axis.text = element_text(size = 10)) 
+
+```
+
+The graph shows that the number of Arduino repositories created has been steadily increasing over the years, with a peak in 2016. After 2016, there is a slight decline in the number of repositories created, but it remains relatively stable. This suggests that there is still a strong interest in Arduino and its associated projects, but perhaps the initial wave of enthusiasm has passed. Overall, the graph provides a useful overview of the Arduino repository landscape on GitHub.

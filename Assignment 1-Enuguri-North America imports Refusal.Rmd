@@ -1,0 +1,170 @@
+---
+title: "North America Imports Refusal Data"
+author: "Hemanth Kumar Enuguri"
+date: "2023-03-03"
+output: html_document
+---
+
+## Data Source
+
+The data is collected from a public dataset from the U.S. Food and Drug Administration (FDA) which contains information on import refusals from 2002 to February 2023. Import refusals occur when FDA inspectors at U.S. ports of entry determine that a product being imported into the U.S. does not meet FDA safety, labeling, or other regulatory requirements.This website <https://datadashboard.fda.gov/ora/cd/imprefusals.htm> gives access to the given data.
+
+------------------------------------------------------------------------
+
+## Characteristics
+
+The data set provides insights into the types of products that are being refused entry into the U.S. and the reasons for refusal, as well as the geographical locations of the firms exporting these products.
+
+------------------------------------------------------------------------
+
+## Variables
+
+The variables in the data set include:
+
+**FEI Number**-the firm's (Federal Establishment Identifier) number
+
+**Firm Legal Name**- the firm's registered name
+
+**Firm address-** Location of the firm (street, city, country)
+
+**Product code and Description**- info about the product type
+
+**Refused Date**-Date on which the product is refused
+
+**Import Division**-The FDA is divided into several import divisions, each of which is responsible for a specific geographic region of the US.
+
+**FDA Sample Analysis** and **Private Lab Analysis**-checks whether FDA sample analysis or private lab analysis was conducted
+
+**Refusal Charges**- Penalty imposed by the FDA
+
+## Import the data
+
+Loading all the required libraries and packages
+
+readxl - to read xlsx file tidyverse - to transform and manipulate data ggplot2 - for visualisation plots
+
+```{r setup,message=FALSE, warning=FALSE}
+
+#install.packages("kableExtra")
+list.files(path = "./")
+
+library(tidyverse)
+library(kableExtra)
+library("readxl")
+
+df <- read_excel("Imports Refusal Dataset.xlsx", col_names = TRUE)
+kable(head(df), booktabs = TRUE) %>%
+  kable_styling(font_size = 14)
+```
+
+## Cleaning
+
+The data set is not tidy.It has multiple variables in a single column such as " **product code and description**".To tidy the data set, we need to separate these variables into separate columns- **Product Code**, **Description**.Also to analyze the data more easily and accurately we are converting" **Firm Address** " into new column as " **Country** ".
+
+1.seperate Product Code and Description into two seperate variables
+
+2.Create a new column with the country name
+
+```{r, warning=FALSE}
+
+df <- df %>% separate('Product Code and Description', into = c("Product Code","Description"), sep = "\\\\",  convert = TRUE)
+
+df$Country <- sub(".+,\\s*", "", df$'Firm Address')
+
+kable(head(df), booktabs = TRUE) %>%
+  kable_styling(font_size = 14)
+
+```
+
+## Missing Values
+
+1.Checking for any missing values in our data
+
+2.count the number of missing values in each column
+
+```{r}
+missing_values <- is.na(df)
+
+colSums(missing_values)
+```
+
+We can observe there are no missing values in our data.We are good to proceed further.
+
+## Data Insights
+
+Here we are taking the count of majorly refused products.The below code gives the product description of top 10 imports thatt are refused along with their count. 1.count the number of refusals for each product description 2.extract the top 10 refused product descriptions and their counts
+
+```{r}
+desc_counts <- df %>% count(Description, sort = TRUE)
+
+top_desc <- head(desc_counts, 10)
+
+kable((top_desc), booktabs = TRUE) %>%
+  kable_styling(font_size = 14)
+```
+
+By analyzing the data by product type, businesses can identify the products that are most likely to be refused entry into the US.
+
+Here we can observe that MISCELLANEOUS PATENT MEDICINES,CORN CHIPS and UNCONVENTIONAL DIETARY SPECIALITIES are the most refused products. So companies must take steps to ensure that their products meet FDA safety, labeling, and other regulatory requirements.
+
+## Data Visulaization
+
+Here the below code depicts the number of products refused by each import division using a pie chart.\
+1.Get the counts of Import Division 2.Convert the counts table to a data frame 3.Create a pie chart and label it
+
+```{r}
+
+counts <- table(df[["Import Division"]])
+
+counts_df <- as.data.frame(counts)
+
+names(counts_df) <- c("Import Division", "Count")
+
+pie <- ggplot(counts_df, aes(x = "", fill = `Import Division`, y = Count)) + 
+  geom_bar(width = 1, stat = "identity") +
+  geom_text(aes(label = Count), position = position_stack(vjust = 0.5)) +
+  theme(panel.background = element_blank(), 
+        panel.grid = element_blank(),
+        plot.title = element_text(hjust=0.5)) + 
+  labs(fill="Import Division", 
+        
+       title="Pie Chart of Counts by Import Division")
+
+pie + coord_polar(theta = "y", start=0)
+```
+
+Here we can observe Division of Southeast Imports (DSEI) has rejected the most imports during the period 2021 to 2023. \|
+
+## Import Refusal Analysis by Country
+
+The below code groups the data by country and outputs the top 10 countries that got rejected the most.
+
+1.group by country and count the number of refusals
+
+2.select the top 10 countries
+
+3.plot a bar chart of the top 10 countries and their refusal counts
+
+```{r}
+refusal_counts <- df %>%
+  group_by(Country) %>%
+  summarise(refusals = n()) %>%
+  arrange(desc(refusals))
+
+top_10_refusal_counts <- refusal_counts %>% slice_head(n = 10)
+
+ggplot(top_10_refusal_counts, aes(x = reorder(Country, -refusals), y = refusals)) +
+  geom_bar(stat = "identity") +
+  xlab("Country") +
+  ylab("Number of Refusals") +
+  ggtitle("Top 10 Countries with the Most Import Refusals") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Here we can see Mexico, China and India are among the highest import refusal countries.
+
+## **Summary**
+
+Our data insights provide basic analysis of Import refusals in each import division based on country, product description etc..for better understanding of type of product and its origin.
+
+Overall, the North America Imports Refusal Data can be a valuable tool for businesses that import products into the US. By using this data to inform their decision-making, businesses can reduce their risk of import refusals, maintain compliance with FDA regulations, and improve the quality and safety of their products.
