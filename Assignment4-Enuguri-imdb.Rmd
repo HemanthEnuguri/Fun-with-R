@@ -1,0 +1,221 @@
+---
+title: "Assignment-4-IMDB"
+author: "HemanthKumarEnuguri"
+date: "2023-04-20"
+output: html_document
+---
+
+## Reading the IMDB Test Data from RDS files
+
+```{r,message=FALSE, warning=FALSE}
+library(keras)
+library(tidyverse)
+library(tidyverse)
+library(kableExtra)
+x_test <- read_rds("X_test.rds")
+y_test <- read_rds("Y_test.rds")
+```
+
+## Loading all the models
+
+1.  *Simple RNN Model*
+
+2.  *LSTM Model*
+
+3.  *GRU Model*
+
+4.  *Bidirectional LSTM Model*
+
+5.  *Bidirectional GRU Model*
+
+6.  *1D convnet Model*
+
+```{r}
+model_simple_rnn<-load_model_hdf5("model_simple_rnn.h5")
+model_simple_rnn_history<-read_rds("model_simple_rnn_history.rds")
+
+model_lstm<-load_model_hdf5("model_lstm.h5")
+model_lstm_history<-read_rds("model_lstm_history.rds")
+
+model_gru<-load_model_hdf5("model_gru.h5")
+model_gru_history<-read_rds("model_gru_history.rds")
+
+model_bi_dir_gru<-load_model_hdf5("model_bi_dir_gru.h5")
+model_bi_dir_gru_history<-read_rds("model_bi_dir_gru_history.rds")
+
+model_bi_dir_lstm<-load_model_hdf5("model_bi_dir_lstm.h5")
+model_bi_dir_lstm_history<-read_rds("model_bi_dir_lstm.rds")
+
+model_1d_convent<-load_model_hdf5("model_1d_convent.h5")
+model_1d_history<-read_rds("model_1d_history.rds")
+
+```
+
+The above code saves the history of all the trained deep learning models to corresponding rds files.
+
+```{r}
+
+reviews <- count(tibble(y_test), Review = (y_test==1))
+reviews[1] <- "Negative" 
+reviews[2,1] <- "Positive"
+cat("Total Test Reviews: ",length(y_test))
+
+kable(reviews, caption = "Positive v/s Negative Reviews", format = "html", 
+      table.attr = "style='width:45%;'") %>% 
+   kable_styling(font_size = 14)
+```
+
+## Simple RNN Model
+
+```{r}
+summary(model_simple_rnn)
+
+```
+
+```{r}
+plot(model_simple_rnn_history)
+```
+
+## LSTM Model
+
+```{r}
+summary(model_lstm)
+
+```
+
+```{r}
+plot(model_lstm_history)
+
+```
+
+## GRU Model
+
+```{r}
+summary(model_gru)
+```
+
+```{r}
+plot(model_gru_history)
+```
+
+## Bidirectional GRU Model
+
+```{r}
+summary(model_bi_dir_gru)
+```
+
+```{r}
+plot(model_bi_dir_gru_history)
+```
+
+## Bidirectional LSTM Model
+
+```{r}
+summary(model_bi_dir_lstm)
+```
+
+```{r}
+plot(model_bi_dir_lstm_history)
+```
+
+## 1D Convnet
+
+```{r}
+summary(model_1d_convent)
+```
+
+```{r}
+plot(model_1d_history)
+```
+
+## Evaluating Models:
+
+```{r}
+rnn_model_score <- model_simple_rnn %>% evaluate(x_test, y_test)
+
+lstm_model_score <- model_lstm %>% evaluate(x_test, y_test)
+
+gru_model_score <- model_gru %>% evaluate(x_test, y_test)
+
+bi_lstm_model_score <- model_bi_dir_lstm %>% evaluate(x_test, y_test)
+
+bi_gru_model_score <- model_bi_dir_gru %>% evaluate(x_test, y_test)
+
+conv_1d_model_score <- model_1d_convent %>% evaluate(x_test, y_test)
+```
+
+The above code helps in evaluating our model on test data.
+
+## CONFUSION MATRIX
+
+```{r}
+rnn_pred <-model_simple_rnn %>% predict(x_test)
+rnn_pred_class = round(rnn_pred)
+rnn_table <- table(y_test, rnn_pred_class)
+
+lstm_pred <- model_lstm %>% predict(x_test)
+lstm_pred_class <- round(lstm_pred)
+lstm_table <- table(y_test, lstm_pred_class)
+
+gru_pred <- model_gru %>% predict(x_test)
+gru_pred_class <- round(gru_pred)
+gru_table <- table(y_test, gru_pred_class)
+
+bi_lstm_pred <- model_bi_dir_lstm %>% predict(x_test)
+bi_lstm_pred_class <- round(bi_lstm_pred)
+bi_lstm_table  <- table(y_test, bi_lstm_pred_class)
+
+bi_gru_pred <-model_bi_dir_gru %>% predict(x_test)
+bi_gru_pred_class <- round(bi_gru_pred)
+bi_gru_table <- table(y_test, bi_gru_pred_class)
+
+conv_1d_pred <- model_1d_convent %>% predict(x_test)
+conv_1d_pred_class <- round(conv_1d_pred)
+conv_1d_table <- table(y_test, conv_1d_pred_class)
+```
+
+```{r}
+deep_learning_models <- c("Simple RNN Model", "LSTM Model", "GRU Model", "Bidirectional LSTM Model", "Bidirectional GRU Model", "1D Convnet Model")
+
+accuracy <- c(rnn_model_score[[2]], lstm_model_score[[2]], gru_model_score[[2]], bi_lstm_model_score[[2]], bi_gru_model_score[[2]], conv_1d_model_score[[2]])
+
+true_positive <- c(rnn_table[2,2], lstm_table[2,2], gru_table[2,2], bi_lstm_table[2,2], bi_gru_table[2,2], conv_1d_table[2,2])
+
+true_negative <- c(rnn_table[1,1], lstm_table[1,1], gru_table[1,1], bi_lstm_table[1,1], bi_gru_table[1,1], conv_1d_table[1,2])
+
+false_positive <- c(rnn_table[1,2], lstm_table[1,2], gru_table[1,2], bi_lstm_table[1,2], bi_gru_table[1,2], conv_1d_table[1,2])
+
+false_negative <-  c(rnn_table[2,1], lstm_table[2,1], gru_table[2,1], bi_lstm_table[2,1], bi_gru_table[2,1], conv_1d_table[2,2])
+
+summary <- tibble(Model_Name = deep_learning_models, Accuracy = accuracy, True_Positives = true_positive, True_Negatives = true_negative, False_Positives = false_positive, False_Negatives = false_negative)
+
+
+
+```
+
+```{r}
+library(kableExtra)
+
+kable(summary, caption = "<span style='font-weight:bold; color:#333'>Performance of the Deep Learning Models</span>") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE) %>%
+  add_header_above(c(" " = 1, "Model Metrics" = 5)) %>%
+  row_spec(0, bold = TRUE) %>%
+  kable_classic(full_width = FALSE, html_font = "Cambria")
+
+```
+
+## Summary
+
+Model metrics such as accuracies,tp_n,fp_n,tn_n,fn_n are obtained in a tabular format as above.<br/>
+
+**LSTM Model** gives the best accuracy of **82.24%** . The second highest accuracy is for **Bidirectional LSTM Model** i.e., **81.60%**. The least accuracy is obtained from **Simple Rnn model** which is **79.84%** .<br/>
+
+Bidirectional models are able to leverage information from both past and future time steps, making them potentially more powerful than their unidirectional counterparts in certain contexts. However, the performance gains from using bidirectional models may not be apparent with small amounts of data, and more data may be needed to truly highlight the benefits.
+
+Increasing the number of epochs can improve the accuracy of the model by allowing it to learn more from the training data. However, doing so can also lead to overfitting.
+
+## **Conclusion**
+
+-   Six text processing Deep Learning Models are implemented on the IMDB dataset.<br/>
+-   All the models have given pretty close accuracy in range of 79% - 82%.<br/>
+-   It can be understood that the major factors which influence the accuracy of any model are the number of epochs, batch size and more variety in training data to achieve better predictions on test data.
